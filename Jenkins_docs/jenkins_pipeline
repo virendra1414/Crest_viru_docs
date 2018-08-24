@@ -1,0 +1,44 @@
+pipeline {
+  agent any
+  stages {
+    
+    stage('Checkout: Code') {
+      steps {
+        
+        checkout([$class: 'GitSCM', 
+          branches: [[name: '*/master']], 
+          doGenerateSubmoduleConfigurations: false, 
+          submoduleCfg: [], 
+          userRemoteConfigs: [[credentialsId: '3f4a0e6c-4b22-400d-8fa8-bee87f0c3915', url: 'https://git.autodesk.com/dpe/chef-cookbook-test.git']]
+        ])
+      }
+    }
+    stage('Chef test') {
+      steps {
+          parallel(
+          "Chef Cookbook Unit": {
+            chef_cookbook_unit()
+          },
+          "Chef Cookbook Lint": {
+            chef_cookbook_foodcritic()
+            chef_cookbook_cookstyle()
+          },
+          "Chef Cookbook Functional": {
+              chef_cookbook_functional()
+          }
+        )
+      }
+    
+    }       
+    stage('Post to chef sserver') {
+      
+      steps {
+        
+            sh "echo pwd $pwd"
+            sh "ls -la"
+            sh "berks install"
+            sh "berks upload"
+         }
+      }
+    }
+}
