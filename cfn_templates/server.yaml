@@ -1,0 +1,3214 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS Native Chef Server v3.3.3
+Parameters:
+  VPC:
+    Description: Choose VPC to use
+    Type: 'AWS::EC2::VPC::Id'
+  ChefServerSubnets:
+    Description: >-
+      Provide a list of Subnet IDs for the Chef Servers (must be within the
+      specified VPC)
+    Type: 'List<AWS::EC2::Subnet::Id>'
+  BastionSubnets:
+    Description: >-
+      Provide a list of Subnet IDs for the Bastion (must be within the
+      specified VPC)
+    Type: 'List<AWS::EC2::Subnet::Id>'
+  LoadBalancerSubnets:
+    Description: >-
+      Provide a list of Subnet IDs for load balancers (must be within the
+      specified VPC)
+    Type: 'List<AWS::EC2::Subnet::Id>'
+  SSLCertificateARN:
+    Description: SSL Certficate ARN for SSL Certficate
+    Type: String
+  AutomateSSLCertificateARN:
+    Description: SSL Certficate ARN for SSL Certficate for Chef Automate
+    Type: String
+  SupermarketSSLCertificateARN:
+    Description: SSL Certficate ARN for SSL Certficate for Chef Supermarket
+    Type: String
+  JenkinsSSLCertificateARN:
+    Description: SSL Certficate ARN for SSL Certficate for Jenkins
+    Type: String
+  InboundAdminSecurityGroupId:
+    Description: >-
+      Select an existing Security Group in your VPC to define administrative
+      ACLs (SSH, monitoring tools, etc) to the Chef servers
+    Type: 'AWS::EC2::SecurityGroup::Id'
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: 'AWS::EC2::KeyPair::KeyName'
+  DBPassword:
+    Description: Enter DB Password
+    NoEcho: true
+    Type: String
+  SupermarketDBPassword:
+    Description: Enter DB Password
+    NoEcho: true
+    Type: String
+  AutomateLicenseKey:
+    Description: Enter Automate License Key
+    NoEcho: true
+    Type: String
+  ChefServerFQDN:
+    Description: FQDN of Chef Server
+    Type: String
+  AutomateFQDN:
+    Description: FQDN of Chef Automate
+    Type: String
+  SupermarketFQDN:
+    Description: FQDN of Chef Supermarket
+    Type: String
+  ContactEmail:
+    Description: Contact email for Cloudwatch notifications and instance tagging
+    Type: String
+  ContactDept:
+    Description: Contact department for billing purposes
+    Type: String
+  InstanceType:
+    Description: EC2 Instance type for Chef Server Frontends (high-CPU recommended)
+    Default: c5.large
+    Type: String
+    AllowedValues:
+      - t2.small
+      - t2.medium
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - m4.16xlarge
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.12xlarge
+      - m5.24xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - c5.9xlarge
+      - c5.18xlarge
+  AutomateInstanceType:
+    Description: EC2 Instance type for Chef Automate
+    Default: m5.xlarge
+    Type: String
+    AllowedValues:
+      - t2.small
+      - t2.medium
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - m4.16xlarge
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.12xlarge
+      - m5.24xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - c5.9xlarge
+      - c5.18xlarge
+  SupermarketInstanceType:
+    Description: EC2 Instance type for Chef Automate
+    Default: c5.large
+    Type: String
+    AllowedValues:
+      - t2.small
+      - t2.medium
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - m4.16xlarge
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.12xlarge
+      - m5.24xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - c5.9xlarge
+      - c5.18xlarge
+  JenkinsInstanceType:
+    Description: EC2 Instance type for Jenkins
+    Default: c5.large
+    Type: String
+    AllowedValues:
+      - t2.small
+      - t2.medium
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - m4.16xlarge
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.12xlarge
+      - m5.24xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - c5.9xlarge
+      - c5.18xlarge
+  BastionInstanceType:
+    Description: EC2 Instance type for Bastion
+    Default: t2.medium
+    Type: String
+    AllowedValues:
+      - t2.small
+      - t2.medium
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - m4.16xlarge
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.12xlarge
+      - m5.24xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - c5.9xlarge
+      - c5.18xlarge
+  MaxFrontendInstances:
+    Description: The maximum number of additional frontend instances to launch
+    Type: Number
+    Default: 3
+  MinFrontendInstances:
+    Description: >-
+      The minimum number of frontend instances to launch in addition to the
+      Bootstrap Frontend
+    Type: Number
+    Default: 1
+  LicenseCount:
+    Default: '25'
+    Description: Enter how many licenses you have purchased
+    Type: String
+  DBInstanceClass:
+    Description: EC2 Instance type for RDS DBs (EBS Optimized instances recommended)
+    Default: db.m4.large
+    Type: String
+    AllowedValues:
+      - db.t2.medium
+      - db.t2.large
+      - db.t2.xlarge
+      - db.t2.2xlarge
+      - db.m4.large
+      - db.m4.xlarge
+      - db.m4.2xlarge
+      - db.m4.4xlarge
+      - db.m4.10xlarge
+      - db.m4.16xlarge
+      - db.r4.large
+      - db.r4.xlarge
+      - db.r4.2xlarge
+      - db.r4.4xlarge
+      - db.r4.8xlarge
+      - db.r4.16xlarge
+  ElasticSearchInstanceType:
+    Description: >-
+      The Instance type to use for ElasticSearch instances (Note, must have
+      ephemeral storage, the instance type affects the total amount of
+      elasticsearch storage. i3 strongly recommended)
+    Type: String
+    Default: i3.large.elasticsearch
+    AllowedValues:
+      - i3.large.elasticsearch
+      - i3.xlarge.elasticsearch
+      - i3.2xlarge.elasticsearch
+      - i3.4xlarge.elasticsearch
+      - i3.8xlarge.elasticsearch
+      - i3.16xlarge.elasticsearch
+      - i2.xlarge.elasticsearch
+      - i2.2xlarge.elasticsearch
+      - m3.medium.elasticsearch
+      - m3.large.elasticsearch
+      - m3.xlarge.elasticsearch
+      - m3.medium.elasticsearch
+      - r3.large.elasticsearch
+      - r3.xlarge.elasticsearch
+      - r3.2xlarge.elasticsearch
+      - r3.4xlarge.elasticsearch
+      - r3.8xlarge.elasticsearch
+  ChefServerPackage:
+    Description: >-
+      The URL to the chef server EL7 (chef-server-core) package which will be
+      downloaded
+    Type: String
+    Default: >-
+      https://packages.chef.io/files/stable/chef-server/12.17.33/el/7/chef-server-core-12.17.33-1.el7.x86_64.rpm
+  ChefManagePackage:
+    Description: The URL to the chef-manage EL7 package which will be downloaded
+    Type: String
+    Default: >-
+      https://packages.chef.io/files/stable/chef-manage/2.5.15/el/7/chef-manage-2.5.15-1.el7.x86_64.rpm
+  PushJobsPackage:
+    Description: The URL to the push jobs server package which will be downloaded
+    Type: String
+    Default: >-
+      https://packages.chef.io/files/stable/opscode-push-jobs-server/2.2.8/el/7/opscode-push-jobs-server-2.2.8-1.el7.x86_64.rpm
+  ChefAutomatePackage:
+    Description: The URL to the chef automate server package which will be downloaded
+    Type: String
+    Default: >-
+      https://packages.chef.io/files/automate/20180615105327/chef-automate_linux_amd64.zip
+  ChefSupermarketPackage:
+    Description: The URL to the chef supermarket package which will be downloaded
+    Type: String
+    Default: >-
+      https://packages.chef.io/files/stable/supermarket/3.1.68/el/7/supermarket-3.1.68-1.el7.x86_64.rpm
+  ChefInternalBucket:
+    Description: >-
+      Supply an S3 Bucket name for the Chef Servers to read config files and
+      scripts from
+    Type: String
+    Default: ''
+  BeforeScriptName:
+    Description: The name of script in ChefInternalBucket which runs before the Main script (optional)
+    Type: String
+    Default: ''
+  AfterScriptName:
+    Description: The name of script in ChefInternalBucket which runs after the Main script (optional)
+    Type: String
+    Default: ''
+  LoadBalancerScheme:
+    Description: Network Scheme for the ELB
+    Type: String
+    Default: internal
+    AllowedValues:
+      - internet-facing
+      - internal
+  DisableSignup:
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'true'
+    Description: >-
+      Allow users to sign themselves up to the chef server? (enter true or
+      false)
+    Type: String
+  EnableOrgCreate:
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Default: 'false'
+    Description: >-
+      Allow users to create organizations themselves up to the chef server? (enter true or
+      false)
+    Type: String
+  ChefSecretsBucket:
+    Description: >-
+      Supply an S3 Bucket name for the Chef Servers and Automate to read/write config files
+      to (leave blank to have it created for you)
+    Type: String
+    Default: ''
+  ClientBootstrapBucket:
+    Description: >-
+      Supply an S3 Bucket name for the Chef Servers to read/write organization validator file
+      to (leave blank to have it created for you)
+    Type: String
+    Default: ''
+  SupermarketDataBucket:
+    Description: >-
+      Supply an S3 Bucket name for the Chef Supermarket to read/write data to
+      (leave blank to have it created for you)
+    Type: String
+    Default: ''
+  ChefServerCustomConfig:
+    Default: ''
+    Type: String
+    Description: >-
+      The name of file in ChefInternalBucket which contains a custom chef-server configuration snippet that will be
+      injected into the chef-server.rb (optional)
+  ChefAutomateCustomConfig:
+    Default: ''
+    Type: String
+    Description: >-
+      The name of file in ChefInternalBucket which contains a custom chef-automate configuration snippet that will be
+      injected into the config.toml (optional)
+  FilebeatConfig:
+    Default: 'filebeat.yml'
+    Type: String
+    Description: >-
+      The name of file in ChefInternalBucket which contains configurations for filebeat.yml
+  AutomateFilebeatConfig:
+    Default: 'automate_filebeat.yml'
+    Type: String
+    Description: >-
+      The name of file in ChefInternalBucket which contains configurations for Automate's filebeat.yml
+  SupermarketFilebeatConfig:
+    Default: 'supermarket_filebeat.yml'
+    Type: String
+    Description: >-
+      The name of file in ChefInternalBucket which contains configurations for Supermarket's filebeat.yml
+  FilebeatCert:
+    Default: 'ca.crt'
+    Type: String
+    Description: >-
+      The name of file in ChefInternalBucket which contains ca certs for filebeat
+  Route53HostedZoneCreate:
+    Description: Whether to create Route 53 Hosted Zone
+    Default: false
+    Type: String
+    AllowedValues: [true, false]
+  Route53HostedZone:
+    Type: String
+    Default: 'dev-chef-server.autodesk.com'
+    Description: >-
+      Supply a Route 53 Hosted Zone name (eg. mydomain.com) for auto-creating a
+      DNS record.
+  Route53RecordName:
+    Type: String
+    Default: chef
+    Description: >-
+      Supply a DNS record name that will be prepended to the Route 53 Hosted
+      Zone
+  AutomateRecordName:
+    Type: String
+    Default: automate
+    Description: >-
+      Supply a DNS record name that will be prepended to the Route 53 Hosted
+      Zone for Automate
+  SupermarketRecordName:
+    Type: String
+    Default: supermarket
+    Description: >-
+      Supply a DNS record name that will be prepended to the Route 53 Hosted
+      Zone for Supermarket
+  LogsRetentionInDays:
+    Description: Specifies the number of days you want to retain cloudwatch log events.
+    Type: Number
+    Default: 90
+    AllowedValues:
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 120
+      - 150
+      - 180
+      - 365
+      - 400
+      - 545
+      - 731
+      - 1827
+      - 3653
+  Username:
+    Description: Username of the Chef admin user
+    Type: String
+    Default: admin
+  Firstname:
+    Description: First name of the Chef admin user
+    Type: String
+    Default: Admin
+  Lastname:
+    Description: Last name of the Chef admin user
+    Type: String
+    Default: Admin
+  Email:
+    Description: Email of the Chef admin user
+    Type: String
+    Default: admin@autodesk.com
+  OrganizationName:
+    Description: Organization name of the Chef organization
+    Type: String
+    Default: autodesk
+  OrganizationFullname:
+    Description: Organization fullname of the Chef organization
+    Type: String
+    Default: 'Autodesk, Inc.'
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Required Parameters
+        Parameters:
+          - VPC
+          - ChefServerSubnets
+          - BastionSubnets
+          - LoadBalancerSubnets
+          - SSLCertificateARN
+          - AutomateSSLCertificateARN
+          - SupermarketSSLCertificateARN
+          - JenkinsSSLCertificateARN
+          - InboundAdminSecurityGroupId
+          - KeyName
+          - DBPassword
+          - SupermarketDBPassword
+          - AutomateLicenseKey
+          - ChefInternalBucket
+          - ContactEmail
+          - ContactDept
+      - Label:
+          default: Performance Settings
+        Parameters:
+          - InstanceType
+          - BastionInstanceType
+          - AutomateInstanceType
+          - SupermarketInstanceType
+          - JenkinsInstanceType
+          - MaxFrontendInstances
+          - MinFrontendInstances
+          - LicenseCount
+          - DBInstanceClass
+          - ElasticSearchInstanceType
+      - Label:
+          default: Package Versions & Locations
+        Parameters:
+          - ChefServerPackage
+          - ChefManagePackage
+          - PushJobsPackage
+          - ChefAutomatePackage
+          - ChefSupermarketPackage
+          - BeforeScriptName
+          - AfterScriptName
+      - Label:
+          default: Security Settings
+        Parameters:
+          - LoadBalancerScheme
+          - DisableSignup
+          - EnableOrgCreate
+          - ChefSecretsBucket
+          - SupermarketDataBucket
+          - ClientBootstrapBucket
+      - Label:
+          default: User And Organization Settings
+        Parameters:
+          - Username
+          - Firstname
+          - Lastname
+          - Email
+          - OrganizationName
+          - OrganizationFullname
+Conditions:
+  CreateChefSecretsBucket: !Equals
+    - !Ref ChefSecretsBucket
+    - ''
+  CreateClientBootstrapBucket: !Equals
+    - !Ref ClientBootstrapBucket
+    - ''
+  CreateSupermarketBucket: !Equals
+    - !Ref SupermarketDataBucket
+    - ''
+  CreateRoute53HostedZone: !Equals
+    - !Ref Route53HostedZoneCreate
+    - true
+  NotCreateRoute53HostedZone: !Equals
+    - !Ref Route53HostedZoneCreate
+    - false
+Mappings:
+  AWSRegion2AMI:
+    ap-south-1:
+      AMI: ami-b46f48db
+    eu-west-3:
+      AMI: ami-cae150b7
+    eu-west-2:
+      AMI: ami-c12dcda6
+    eu-west-1:
+      AMI: ami-9cbe9be5
+    ap-northeast-2:
+      AMI: ami-efaf0181
+    ap-northeast-1:
+      AMI: ami-28ddc154
+    sa-east-1:
+      AMI: ami-f09dcc9c
+    ca-central-1:
+      AMI: ami-2f39bf4b
+    ap-southeast-1:
+      AMI: ami-64260718
+    ap-southeast-2:
+      AMI: ami-60a26a02
+    eu-central-1:
+      AMI: ami-1b316af0
+    us-east-1:
+      AMI: ami-467ca739
+    us-east-2:
+      AMI: ami-976152f2
+    us-west-1:
+      AMI: ami-46e1f226
+    us-west-2:
+      AMI: ami-6b8cef13
+  AutomateAWSRegion2AMI:
+    us-east-1:
+      AMI: ami-9887c6e7
+    us-west-2:
+      AMI: ami-3ecc8f46
+Resources:
+  BootstrapAutoScaleGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    DependsOn:
+      - DBPostgres
+      - ElasticsearchDomain
+      - AutomateAutoScaleGroup
+      - AutomateWaitCondition
+    Properties:
+      LaunchConfigurationName: !Ref ServerLaunchConfig
+      TargetGroupARNs:
+        - !Ref ChefTargetGroup
+        - !Ref ChefBootstrapTargetGroup
+      LoadBalancerNames:
+        - !Ref ChefPJELB
+      MaxSize: '1'
+      MinSize: '1'
+      NotificationConfigurations:
+        - TopicARN: !Ref AlertNotificationTopic
+          NotificationTypes:
+            - 'autoscaling:EC2_INSTANCE_LAUNCH'
+            - 'autoscaling:EC2_INSTANCE_LAUNCH_ERROR'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE_ERROR'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-bootstrap-frontend'
+          PropagateAtLaunch: true
+        - Key: X-Dept
+          Value: !Ref ContactDept
+          PropagateAtLaunch: true
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+          PropagateAtLaunch: true
+      VPCZoneIdentifier: !Ref ChefServerSubnets
+  BastionAutoScaleGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      LaunchConfigurationName: !Ref BastionLaunchConfig
+      MaxSize: '1'
+      MinSize: '1'
+      NotificationConfigurations:
+        - TopicARN: !Ref AlertNotificationTopic
+          NotificationTypes:
+            - 'autoscaling:EC2_INSTANCE_LAUNCH'
+            - 'autoscaling:EC2_INSTANCE_LAUNCH_ERROR'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE_ERROR'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-bastion'
+          PropagateAtLaunch: true
+        - Key: X-Dept
+          Value: !Ref ContactDept
+          PropagateAtLaunch: true
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+          PropagateAtLaunch: true
+      VPCZoneIdentifier: !Ref BastionSubnets
+  AutomateAutoScaleGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      LaunchConfigurationName: !Ref AutomateServerLaunchConfig
+      TargetGroupARNs:
+        - !Ref AutomateTargetGroup
+      MaxSize: !Sub '1'
+      MinSize: !Sub '1'
+      NotificationConfigurations:
+        - TopicARN: !Ref AlertNotificationTopic
+          NotificationTypes:
+            - 'autoscaling:EC2_INSTANCE_LAUNCH'
+            - 'autoscaling:EC2_INSTANCE_LAUNCH_ERROR'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE_ERROR'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-automate'
+          PropagateAtLaunch: true
+        - Key: X-Dept
+          Value: !Ref ContactDept
+          PropagateAtLaunch: true
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+          PropagateAtLaunch: true
+      VPCZoneIdentifier: !Ref ChefServerSubnets
+  SupermarketAutoScaleGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    DependsOn:
+      - BootstrapAutoScaleGroup
+      - SupermarketPostgres
+      - WaitCondition
+    Properties:
+      LaunchConfigurationName: !Ref SupermarketLaunchConfig
+      TargetGroupARNs:
+        - !Ref SupermarketTargetGroup
+      MaxSize: !Sub '1'
+      MinSize: !Sub '1'
+      NotificationConfigurations:
+        - TopicARN: !Ref AlertNotificationTopic
+          NotificationTypes:
+            - 'autoscaling:EC2_INSTANCE_LAUNCH'
+            - 'autoscaling:EC2_INSTANCE_LAUNCH_ERROR'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE_ERROR'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-supermarket'
+          PropagateAtLaunch: true
+        - Key: X-Dept
+          Value: !Ref ContactDept
+          PropagateAtLaunch: true
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+          PropagateAtLaunch: true
+      VPCZoneIdentifier: !Ref ChefServerSubnets
+  FrontendAutoScaleGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    DependsOn:
+      - BootstrapAutoScaleGroup
+      - WaitCondition
+    Properties:
+      LaunchConfigurationName: !Ref ServerLaunchConfig
+      TargetGroupARNs:
+        - !Ref ChefTargetGroup
+      MaxSize: !Sub '${MaxFrontendInstances}'
+      MinSize: !Sub '${MinFrontendInstances}'
+      NotificationConfigurations:
+        - TopicARN: !Ref AlertNotificationTopic
+          NotificationTypes:
+            - 'autoscaling:EC2_INSTANCE_LAUNCH'
+            - 'autoscaling:EC2_INSTANCE_LAUNCH_ERROR'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE_ERROR'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-frontend'
+          PropagateAtLaunch: true
+        - Key: X-Dept
+          Value: !Ref ContactDept
+          PropagateAtLaunch: true
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+          PropagateAtLaunch: true
+      VPCZoneIdentifier: !Ref ChefServerSubnets
+  FrontendAutoScaleUpPolicy:
+    Type: 'AWS::AutoScaling::ScalingPolicy'
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref FrontendAutoScaleGroup
+      Cooldown: 60
+      ScalingAdjustment: 1
+  FrontendAutoScaleDownPolicy:
+    Type: 'AWS::AutoScaling::ScalingPolicy'
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref FrontendAutoScaleGroup
+      Cooldown: 60
+      ScalingAdjustment: -1
+  JenkinsAutoScaleGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    DependsOn:
+      - BootstrapAutoScaleGroup
+    Properties:
+      LaunchConfigurationName: !Ref JenkinsLaunchConfig
+      TargetGroupARNs:
+        - !Ref JenkinsTargetGroup
+      MaxSize: !Sub '1'
+      MinSize: !Sub '1'
+      NotificationConfigurations:
+        - TopicARN: !Ref AlertNotificationTopic
+          NotificationTypes:
+            - 'autoscaling:EC2_INSTANCE_LAUNCH'
+            - 'autoscaling:EC2_INSTANCE_LAUNCH_ERROR'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE_ERROR'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-Jenkins'
+          PropagateAtLaunch: true
+        - Key: X-Dept
+          Value: !Ref ContactDept
+          PropagateAtLaunch: true
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+          PropagateAtLaunch: true
+      VPCZoneIdentifier: !Ref ChefServerSubnets
+  ChefBucket:
+    Condition: CreateChefSecretsBucket
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: Private
+  BootstrapBucket:
+    Condition: CreateClientBootstrapBucket
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: Private
+  SupermarketBucket:
+    Condition: CreateSupermarketBucket
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: Private
+  ChefInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref ChefRole
+  ChefRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+                - lambda.amazonaws.com
+        Version: 2012-10-17
+      Path: /
+  RolePolicies:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: !Sub '${AWS::StackName}-ChefServer-Policy'
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: 's3:*'
+            Effect: Allow
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !If
+                    - CreateChefSecretsBucket
+                    - !Ref ChefBucket
+                    - !Ref ChefSecretsBucket
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !If
+                    - CreateChefSecretsBucket
+                    - !Ref ChefBucket
+                    - !Ref ChefSecretsBucket
+                  - /*
+          - Action: 's3:*'
+            Effect: Allow
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !If
+                    - CreateClientBootstrapBucket
+                    - !Ref BootstrapBucket
+                    - !Ref ClientBootstrapBucket
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !If
+                    - CreateClientBootstrapBucket
+                    - !Ref BootstrapBucket
+                    - !Ref ClientBootstrapBucket
+                  - /*
+          - Action: 's3:GetObject'
+            Effect: Allow
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref ChefInternalBucket
+                  - /*
+          - Action: 's3:List*'
+            Effect: Allow
+            Resource: 'arn:aws:s3:::*'
+          - Action: 'ssm:*'
+            Effect: Allow
+            Resource: 'arn:aws:ssm:*:*:parameter/Chef/*'
+          - Action: 'autoscaling:*'
+            Effect: Allow
+            Resource: '*'
+          - Action: 'ec2:DescribeTags'
+            Effect: Allow
+            Resource: '*'
+          - Action: 'cloudwatch:PutMetricData'
+            Effect: Allow
+            Resource: '*'
+          - Action: 'cloudwatch:GetMetricStatistics'
+            Effect: Allow
+            Resource: '*'
+          - Action: 'cloudwatch:ListMetrics'
+            Effect: Allow
+            Resource: '*'
+          - Action:
+              - 'logs:PutLogEvents'
+              - 'logs:CreateLogStream'
+              - 'logs:CreateLogGroup'
+            Effect: Allow
+            Resource: !Sub >-
+              arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${AWS::StackName}*
+          - Action:
+              - 'ec2:CreateNetworkInterface'
+              - 'ec2:DescribeNetworkInterfaces'
+              - 'ec2:DeleteNetworkInterface'
+            Effect: Allow
+            Resource: '*'
+      Roles:
+        - !Ref ChefRole
+  BastionInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref BastionRole
+  BastionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+        Version: 2012-10-17
+      Path: /
+  ChefKMSKey:
+    Type: "AWS::KMS::Key"
+    Properties:
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: "key-default-1"
+        Statement:
+          -
+            Sid: "Allow administration of the key"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action:
+              - "kms:Create*"
+              - "kms:Describe*"
+              - "kms:Enable*"
+              - "kms:List*"
+              - "kms:Put*"
+              - "kms:Update*"
+              - "kms:Revoke*"
+              - "kms:Disable*"
+              - "kms:Get*"
+              - "kms:Delete*"
+              - "kms:ScheduleKeyDeletion"
+              - "kms:CancelKeyDeletion"
+            Resource: "*"
+          -
+            Sid: "Allow use of the key"
+            Effect: "Allow"
+            Principal:
+              AWS:
+                - !GetAtt
+                  - ChefRole
+                  - Arn
+            Action:
+              - "kms:Encrypt"
+              - "kms:Decrypt"
+              - "kms:ReEncrypt*"
+              - "kms:GenerateDataKey*"
+              - "kms:DescribeKey"
+            Resource: "*"
+  ChefSupermarketS3User:
+    Type: AWS::IAM::User
+    Properties:
+      Path: "/"
+      Policies:
+      - PolicyName: giveaccesstos3only
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Action: 's3:*'
+              Effect: Allow
+              Resource:
+                - !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !If
+                      - CreateSupermarketBucket
+                      - !Ref SupermarketBucket
+                      - !Ref SupermarketDataBucket
+                - !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !If
+                      - CreateSupermarketBucket
+                      - !Ref SupermarketBucket
+                      - !Ref SupermarketDataBucket
+                    - /*
+  SupermarketS3UserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName:
+        !Ref ChefSupermarketS3User
+  FrontendSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Setup Ingress/Egress for Chef Frontend
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: '0'
+          IpProtocol: tcp
+          ToPort: '65535'
+      SecurityGroupIngress:
+        - FromPort: '22'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref BastionSecurityGroup
+          ToPort: '22'
+        - FromPort: '80'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          ToPort: '80'
+        - FromPort: '443'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          ToPort: '443'
+        - FromPort: '10000'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          ToPort: '10003'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-FE-SG'
+      VpcId: !Ref VPC
+  AutomateSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Setup Ingress/Egress for Chef Automate
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: '0'
+          IpProtocol: tcp
+          ToPort: '65535'
+      SecurityGroupIngress:
+        - FromPort: '22'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref BastionSecurityGroup
+          ToPort: '22'
+        - FromPort: '80'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          ToPort: '80'
+        - FromPort: '443'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          ToPort: '443'
+        - FromPort: '80'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref FrontendSecurityGroup
+          ToPort: '80'
+        - FromPort: '443'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref FrontendSecurityGroup
+          ToPort: '443'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-Automate-SG'
+      VpcId: !Ref VPC
+  SupermarketSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Setup Ingress/Egress for Chef Automate
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: '0'
+          IpProtocol: tcp
+          ToPort: '65535'
+      SecurityGroupIngress:
+        - FromPort: '22'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref BastionSecurityGroup
+          ToPort: '22'
+        - FromPort: '80'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          ToPort: '80'
+        - FromPort: '443'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          ToPort: '443'
+        - FromPort: '80'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref FrontendSecurityGroup
+          ToPort: '80'
+        - FromPort: '443'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref FrontendSecurityGroup
+          ToPort: '443'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-Supermarket-SG'
+      VpcId: !Ref VPC
+  JenkinsSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Setup Ingress/Egress for Jenkins
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: '0'
+          IpProtocol: tcp
+          ToPort: '65535'
+      SecurityGroupIngress:
+        - FromPort: '22'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref BastionSecurityGroup
+          ToPort: '22'
+        - FromPort: '80'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          ToPort: '80'
+        - FromPort: '443'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          ToPort: '443'
+        - FromPort: '80'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref FrontendSecurityGroup
+          ToPort: '80'
+        - FromPort: '443'
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref FrontendSecurityGroup
+          ToPort: '443'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-Jenkins-SG'
+      VpcId: !Ref VPC
+  BastionSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Setup Ingress/Egress for Bastion
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: '0'
+          IpProtocol: tcp
+          ToPort: '65535'
+      SecurityGroupIngress:
+        - CidrIp: 10.0.0.0/8
+          FromPort: '22'
+          IpProtocol: tcp
+          ToPort: '22'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-Bastion-SG'
+      VpcId: !Ref VPC
+  LoadBalancerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Setup Ingress/Egress for Chef Frontend Load Balancer
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: '0'
+          IpProtocol: tcp
+          ToPort: '65535'
+      SecurityGroupIngress:
+        - CidrIp: 10.0.0.0/8
+          FromPort: '80'
+          IpProtocol: tcp
+          ToPort: '80'
+        - CidrIp: 10.0.0.0/8
+          FromPort: '443'
+          IpProtocol: tcp
+          ToPort: '443'
+        - FromPort: '10000'
+          IpProtocol: tcp
+          CidrIp: 10.0.0.0/8
+          ToPort: '10003'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-ELB-SG'
+      VpcId: !Ref VPC
+  ChefPJELB:
+    Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
+    Properties:
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets: !Ref LoadBalancerSubnets
+      Scheme: !Ref LoadBalancerScheme
+      Listeners:
+        - LoadBalancerPort: '10000'
+          InstancePort: '10000'
+          Protocol: TCP
+        - LoadBalancerPort: '10002'
+          InstancePort: '10002'
+          Protocol: TCP
+        - LoadBalancerPort: '10003'
+          InstancePort: '10003'
+          Protocol: TCP
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-pushjobs-lb'
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  ChefALB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets: !Ref LoadBalancerSubnets
+      Scheme: !Ref LoadBalancerScheme
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-lb'
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  ChefALBListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      Certificates:
+        - CertificateArn: !Ref SSLCertificateARN
+      LoadBalancerArn: !Ref ChefALB
+      Port: 443
+      Protocol: HTTPS
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ChefTargetGroup
+  AutomateALB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets: !Ref LoadBalancerSubnets
+      Scheme: !Ref LoadBalancerScheme
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-automate-lb'
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  AutomateALBListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      Certificates:
+        - CertificateArn: !Ref AutomateSSLCertificateARN
+      LoadBalancerArn: !Ref AutomateALB
+      Port: 443
+      Protocol: HTTPS
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AutomateTargetGroup
+  JenkinsALB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets: !Ref LoadBalancerSubnets
+      Scheme: !Ref LoadBalancerScheme
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-jenkins-lb'
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  JenkinsALBListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      Certificates:
+        - CertificateArn: !Ref AutomateSSLCertificateARN
+      LoadBalancerArn: !Ref JenkinsALB
+      Port: 443
+      Protocol: HTTPS
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref JenkinsTargetGroup
+  SupermarketALB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets: !Ref LoadBalancerSubnets
+      Scheme: !Ref LoadBalancerScheme
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-supermarket-lb'
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  SupermarketALBListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      Certificates:
+        - CertificateArn: !Ref SupermarketSSLCertificateARN
+      LoadBalancerArn: !Ref SupermarketALB
+      Port: 443
+      Protocol: HTTPS
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref SupermarketTargetGroup
+  JenkinsALB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets: !Ref LoadBalancerSubnets
+      Scheme: !Ref LoadBalancerScheme
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-jenkins-lb'
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  JenkinsListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      Certificates:
+        - CertificateArn: !Ref JenkinsSSLCertificateARN
+      LoadBalancerArn: !Ref JenkinsALB
+      Port: 443
+      Protocol: HTTPS
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref JenkinsTargetGroup
+  ChefALBPJListenerRule:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ChefBootstrapTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /organizations/*/pushy/*
+      ListenerArn: !Ref ChefALBListener
+      Priority: 1
+  ChefTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      UnhealthyThresholdCount: 10
+      HealthCheckPath: /_status
+      VpcId: !Ref VPC
+      Port: 443
+      Protocol: HTTPS
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: true
+        - Key: stickiness.type
+          Value: lb_cookie
+      Tags:
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  AutomateTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      UnhealthyThresholdCount: 10
+      HealthCheckPath: /
+      VpcId: !Ref VPC
+      Port: 443
+      Protocol: HTTPS
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: true
+        - Key: stickiness.type
+          Value: lb_cookie
+      Tags:
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  SupermarketTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      UnhealthyThresholdCount: 10
+      HealthCheckPath: /status
+      VpcId: !Ref VPC
+      Port: 443
+      Protocol: HTTPS
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: true
+        - Key: stickiness.type
+          Value: lb_cookie
+      Tags:
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  JenkinsTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      UnhealthyThresholdCount: 10
+      HealthCheckPath: /status
+      VpcId: !Ref VPC
+      Port: 443
+      Protocol: HTTPS
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: true
+        - Key: stickiness.type
+          Value: lb_cookie
+      Tags:
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  ChefBootstrapTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      UnhealthyThresholdCount: 10
+      HealthCheckPath: /_status
+      VpcId: !Ref VPC
+      Port: 443
+      Protocol: HTTPS
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: true
+        - Key: stickiness.type
+          Value: lb_cookie
+      Tags:
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  ServerLaunchConfig:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      AssociatePublicIpAddress: false
+      EbsOptimized: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp2
+            DeleteOnTermination: true
+      IamInstanceProfile: !Ref ChefInstanceProfile
+      ImageId: !FindInMap
+        - AWSRegion2AMI
+        - !Ref 'AWS::Region'
+        - AMI
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref FrontendSecurityGroup
+        - !Ref InboundAdminSecurityGroupId
+      UserData: !Base64
+        'Fn::Sub': |
+          #!/bin/bash -x
+
+          # Execute AWS::CloudFormation::Init
+
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource ServerLaunchConfig --region ${AWS::Region}
+
+          # All is well so signal success and let CF know wait function is complete
+
+          /opt/aws/bin/cfn-signal -e 0 -r "Server setup complete" '${WaitHandle}'
+    Metadata:
+      'AWS::CloudFormation::Init':
+        configSets:
+          default:
+            - awslogs
+            - config
+            - filebeat
+        config:
+          packages:
+            rpm:
+              chef-server-core: !Sub '${ChefServerPackage}'
+              chef-manage: !Sub '${ChefManagePackage}'
+              opscode-push-jobs-server: !Sub '${PushJobsPackage}'
+            yum:
+              perl: []
+              perl-Switch: []
+              perl-DateTime: []
+              perl-Sys-Syslog: []
+              perl-LWP-Protocol-https: []
+              perl-Digest-SHA: []
+              zip: []
+              unzip: []
+          files:
+            /etc/opscode-push-jobs-server/opscode-push-jobs-server.rb:
+              content: !Sub >
+                opscode_pushy_server['vip'] = '127.0.0.1'
+
+                opscode_pushy_server['server_name_advertised'] =
+                '${ChefPJELB.DNSName}'
+            /etc/chef-manage/manage.rb:
+              content: !Sub |
+                disable_sign_up ${DisableSignup}
+                org_creation_enabled ${EnableOrgCreate}
+            /etc/opscode/chef-server.rb:
+              content: !Sub >
+                api_fqdn '${ChefServerFQDN}'.downcase
+
+                nginx['enable_non_ssl'] = true
+
+                license['nodes'] = ${LicenseCount}
+
+                postgresql['external'] = true
+
+                postgresql['vip'] = '${DBPostgres.Endpoint.Address}'
+
+                postgresql['db_superuser'] = 'chefadmin'
+
+                postgresql['db_superuser_password'] = '${DBPassword}'
+
+                oc_chef_authz['http_init_count'] = 100
+
+                oc_chef_authz['http_queue_max'] = 200
+
+                opscode_erchef['authz_pooler_timeout'] = 2000
+
+                oc_bifrost['db_pool_init'] = 10
+
+                oc_bifrost['db_pool_max'] = 20
+
+                oc_bifrost['db_pool_queue_max'] = 40
+
+                opscode_erchef['depsolver_worker_count'] = 4
+
+                opscode_erchef['depsolver_timeout'] = 20000
+
+                opscode_erchef['db_pool_init'] = 10
+
+                opscode_erchef['db_pool_max'] = 20
+
+                opscode_erchef['db_pool_queue_max'] = 40
+
+                opscode_erchef['keygen_cache_workers'] = 2
+
+                opscode_erchef['keygen_cache_size'] = 100
+
+                opscode_erchef['nginx_bookshelf_caching'] = :on
+
+                opscode_erchef['s3_url_expiry_window_size'] = '100%'
+
+                opscode_erchef['s3_parallel_ops_fanout'] = 10
+
+                opscode_erchef['search_provider'] = 'elasticsearch'
+
+                opscode_erchef['search_queue_mode'] = 'batch'
+
+                opscode_solr4['external'] = true
+
+                opscode_solr4['external_url'] = 'http://localhost:9200'
+
+                opscode_solr4['elasticsearch_shard_count'] = 3
+
+                opscode_solr4['elasticsearch_replica_count'] = 2
+
+                bookshelf['storage_type'] = :sql
+
+                bookshelf['db_pool_init'] = 10
+
+                bookshelf['db_pool_max'] = 20
+
+                bookshelf['vip'] = '${ChefServerFQDN}'.downcase
+
+                rabbitmq['enable'] = false
+
+                rabbitmq['management_enabled'] = false
+
+                rabbitmq['queue_length_monitor_enabled'] = false
+
+                opscode_expander['enable'] = false
+
+                dark_launch['actions'] = false
+
+                data_collector['root_url'] = 'https://${AutomateFQDN}/data-collector/v0/'
+
+                data_collector['proxy'] = true
+
+                profiles['root_url'] = 'https://${AutomateFQDN}'
+
+                oc_id['applications'] ||= {}
+
+                oc_id['applications']['supermarket'] = {
+                  'redirect_uri' => 'https://${SupermarketFQDN}/auth/chef_oauth2/callback'
+                }
+            /usr/local/bin/aws-signing-proxy:
+              source: >-
+                https://github.com/chef-customers/aws-signing-proxy/releases/download/v0.3.0/aws-signing-proxy
+              mode: '000755'
+            /etc/init/aws-signing-proxy.conf:
+              content: !Sub |
+                start on runlevel [2345]
+                stop on shutdown
+                respawn
+                exec /usr/local/bin/aws-signing-proxy
+            /etc/aws-signing-proxy.yml:
+              content: !Sub |
+                listen-address: 127.0.0.1
+                port: 9200
+                target: https://${ElasticsearchDomain.DomainEndpoint}
+                region: ${AWS::Region}
+            /root/chef-auth.rb:
+              content: !Sub |
+                #!/usr/bin/env ruby
+                require 'rubygems'
+                require 'chef/rest'
+
+                Chef::Config[:chef_server_url] = "https://${ChefServerFQDN}:443"
+                Chef::Config[:node_name] = "${Username}"
+                Chef::Config[:client_key] = "/root/${Username}.pem"
+
+                rest = Chef::REST.new(Chef::Config[:chef_server_url])
+
+                objects = ["clients", "sandboxes", "cookbooks", "data", "environments", "nodes", "policies", "policy_groups", "roles"]
+                perms = ["create", "update", "delete", "grant"]
+
+                for object in objects do
+                  for perm in perms do
+                    ace = rest.get_rest("organizations/${OrganizationName}/containers/#{object}/_acl?detail=granular")[perm]
+                    ace["groups"].delete("users")
+                    rest.put_rest("organizations/${OrganizationName}/containers/#{object}/_acl/#{perm}", perm => ace)
+                  end
+                end
+
+                for perm in perms do
+                  ace = rest.get_rest("organizations/${OrganizationName}/clients/${OrganizationName}-validator/_acl?detail=granular")[perm]
+                  ace["groups"].delete("users")
+                  rest.put_rest("organizations/${OrganizationName}/clients/${OrganizationName}-validator/_acl/#{perm}", perm => ace)
+                end
+          commands:
+            01_start_es_proxy:
+              command: initctl start aws-signing-proxy
+            02_before_script:
+              command: !Sub |
+                if [ -n '${BeforeScriptName}' ]; then
+                    aws s3 cp s3://${ChefInternalBucket}/${BeforeScriptName} /root/before.sh
+                    bash -x /root/before.sh
+                fi
+                if [ -n '${ChefServerCustomConfig}' ]; then
+                    aws s3 cp s3://${ChefInternalBucket}/${ChefServerCustomConfig} /etc/opscode/chef-server-custom.rb
+                    echo "# Appended from chef-server-custom.rb" >> /etc/opscode/chef-server.rb
+                    cat /etc/opscode/chef-server-custom.rb >> /etc/opscode/chef-server.rb
+                fi
+                curl -o jq -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
+                chmod +x jq
+                mv jq /usr/bin
+                TOKEN=$(aws ssm get-parameter --region ${AWS::Region} --name /Chef/AutomateStandardToken --with-decrypt|jq -r '.Parameter["Value"]')
+                echo "data_collector['token'] = '$TOKEN'" >> /etc/opscode/chef-server.rb
+            03_configure_chef_server:
+              command: !Sub
+                - >
+                  export STACKNAME=${AWS::StackName}
+
+                  export BUCKET=${S3BUCKET}
+
+                  export AWS_REGION=${AWS::Region}
+
+                  export WAITHANDLE="${WaitHandle}"
+
+                  # don't sign the request as a workaround to download object from a third party public bucket
+
+                  aws s3 cp --no-sign-request s3://aws-native-chef-server/files/main.sh /root/main.sh
+
+                  bash -x /root/main.sh
+                - S3BUCKET: !If
+                    - CreateChefSecretsBucket
+                    - !Ref ChefBucket
+                    - !Ref ChefSecretsBucket
+            04_after_script:
+              command: !Sub
+                - |
+                  if [ -n '${AfterScriptName}' ]; then
+                    aws s3 cp s3://${ChefInternalBucket}/${AfterScriptName} /root/after.sh
+                    export AWS_REGION=${AWS::Region}
+                    export STACKNAME=${AWS::StackName}
+                    export BUCKET=${S3BUCKET}
+                    export BOOTSTRAP_BUCKET=${S3BOOTSTRAPBUCKET}
+                    export USERNAME=${Username}
+                    export FIRSTNAME=${Firstname}
+                    export LASTNAME=${Lastname}
+                    export EMAIL=${Email}
+                    export ORGNAME=${OrganizationName}
+                    export ORGFULLNAME="${OrganizationFullname}"
+                    export KEY_ID=${ChefKMSKey}
+                    bash -x /root/after.sh
+                  fi
+                - S3BUCKET: !If
+                    - CreateChefSecretsBucket
+                    - !Ref ChefBucket
+                    - !Ref ChefSecretsBucket
+                  S3BOOTSTRAPBUCKET: !If
+                    - CreateClientBootstrapBucket
+                    - !Ref BootstrapBucket
+                    - !Ref ClientBootstrapBucket
+            05_configure_cloudwatch_monitoring:
+              command: !Sub >
+                mkdir /opt/cloudwatch_monitoring
+
+                cd /opt/cloudwatch_monitoring
+
+                curl
+                http://aws-cloudwatch.s3.amazonaws.com/downloads/CloudWatchMonitoringScripts-1.2.1.zip
+                -O
+
+                unzip CloudWatchMonitoringScripts-1.2.1.zip
+
+                rm CloudWatchMonitoringScripts-1.2.1.zip
+
+                crontab -l | { cat; echo "*/5 * * * *
+                /opt/cloudwatch_monitoring/aws-scripts-mon/mon-put-instance-data.pl
+                --auto-scaling --mem-util --disk-space-util --disk-path=/
+                --from-cron"; } | crontab -
+        awslogs:
+          packages:
+            yum:
+              awslogs: []
+          files:
+            /etc/awslogs/awscli.conf:
+              content: !Sub |
+                [default]
+                region = ${AWS::Region}
+                [plugins]
+                cwlogs = cwlogs
+              mode: '000644'
+              owner: root
+              group: root
+            /etc/awslogs/awslogs.conf:
+              content: !Sub |
+                [general]
+                state_file = /var/lib/awslogs/agent-state
+                [/var/log/messages]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/messages
+                log_stream_name = {instance_id}
+                log_group_name = ${VarLogMessages}
+                [/var/log/secure]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/secure
+                log_stream_name = {instance_id}
+                log_group_name = ${VarLogSecure}
+                [/var/log/cron]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/cron
+                log_stream_name = {instance_id}
+                log_group_name = ${VarLogCron}
+                [/var/log/cloud-init.log]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/cloud-init.log
+                log_stream_name = {instance_id}
+                log_group_name = ${VarLogCloudInitLog}
+                [/var/log/cfn-init.log]
+                datetime_format = %Y-%m-%d %H:%M:%S
+                file = /var/log/cfn-init.log
+                log_stream_name = {instance_id}
+                log_group_name = ${VarLogCfnInitLog}
+                [/var/log/cfn-init-cmd.log]
+                datetime_format = %Y-%m-%d %H:%M:%S
+                file = /var/log/cfn-init-cmd.log
+                log_stream_name = {instance_id}
+                log_group_name = ${VarLogCfnInitCmdLog}
+                [/var/log/cloud-init-output.log]
+                file = /var/log/cloud-init-output.log
+                log_stream_name = {instance_id}
+                log_group_name = ${VarLogCloudInitOutputLog}
+                [/var/log/dmesg]
+                file = /var/log/dmesg
+                log_stream_name = {instance_id}
+                log_group_name = ${VarLogDmesg}
+                [/var/log/aws-signing-proxy/proxy.log]
+                log_group_name = ${VarLogAwsSigningProxyLog}
+                file = /var/log/aws-signing-proxy/proxy.log
+                log_stream_name = {instance_id}
+                [/var/log/opscode/bookshelf/current]
+                log_group_name = ${VarLogOpscodeBookshelfCurrent}
+                file = /var/log/opscode/bookshelf/current
+                log_stream_name = {instance_id}
+                [/var/log/opscode/oc_bifrost/current]
+                log_group_name = ${VarLogOpscodeOcBifrostCurrent}
+                file = /var/log/opscode/oc_bifrost/current
+                log_stream_name = {instance_id}
+                [/var/log/opscode/opscode-erchef/current]
+                log_group_name = ${VarLogOpscodeOpscodeErchefCurrent}
+                file = /var/log/opscode/opscode-erchef/current
+                log_stream_name = {instance_id}
+                [/var/log/opscode/opscode-erchef/requests.log]
+                log_group_name = ${VarLogOpscodeOpscodeErchefRequestsLog}
+                file = /var/log/opscode/opscode-erchef/requests.log.*
+                log_stream_name = {instance_id}
+                [/var/log/opscode/opscode-pushy-server/current]
+                log_group_name = ${VarLogOpscodeOpscodePushyServerCurrent}
+                file = /var/log/opscode/opscode-pushy-server/current
+                log_stream_name = {instance_id}
+                [/var/log/opscode/redis_lb/current]
+                log_group_name = ${VarLogOpscodeRedisLbCurrent}
+                file = /var/log/opscode/redis_lb/current
+                log_stream_name = {instance_id}
+                [/var/log/opscode/oc_id/current]
+                log_group_name = ${VarLogOpscodeOcIdCurrent}
+                file = /var/log/opscode/oc_id/current
+                log_stream_name = {instance_id}
+                [/var/log/opscode/nginx/access.log]
+                log_group_name = ${VarLogOpscodeNginxAccessLog}
+                file = /var/log/opscode/nginx/access.log
+                log_stream_name = {instance_id}
+                [/var/log/opscode/nginx/error.log]
+                log_group_name = ${VarLogOpscodeNginxErrorLog}
+                file = /var/log/opscode/nginx/error.log
+                log_stream_name = {instance_id}
+                [/var/log/chef-manage/redis/current]
+                log_group_name = ${VarLogChefManageRedisCurrent}
+                file = /var/log/chef-manage/redis/current
+                log_stream_name = {instance_id}
+                [/var/log/chef-manage/web/current]
+                log_group_name = ${VarLogChefManageWebCurrent}
+                file = /var/log/chef-manage/web/current
+                log_stream_name = {instance_id}
+                [/var/log/chef-manage/worker/current]
+                log_group_name = ${VarLogChefManageWorkerCurrent}
+                file = /var/log/chef-manage/worker/current
+                log_stream_name = {instance_id}
+              mode: '000644'
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              awslogs:
+                enabled: true
+                ensureRunning: true
+                packages:
+                  yum:
+                    - awslogs
+                files:
+                  - /etc/awslogs/awslogs.conf
+                  - /etc/awslogs/awscli.conf
+        filebeat:
+          packages:
+            rpm:
+              filebeat: >-
+                https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-5.6.6-x86_64.rpm
+          commands:
+            01_write_filebeat_yml:
+              command: !Sub |
+                if [ -n '${FilebeatConfig}' ]; then
+                  aws s3 cp s3://${ChefInternalBucket}/${FilebeatConfig} /etc/filebeat/filebeat.yml
+                fi
+                if [ -n '${FilebeatCert}' ]; then
+                  aws s3 cp s3://${ChefInternalBucket}/${FilebeatCert} /etc/filebeat/ca.crt
+                fi
+          services:
+            sysvinit:
+              filebeat:
+                enabled: true
+                ensureRunning: true
+                packages:
+                  rpm:
+                    - filebeat
+                files:
+                  - /etc/filebeat/filebeat.yml
+  AutomateServerLaunchConfig:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      AssociatePublicIpAddress: false
+      EbsOptimized: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp2
+            DeleteOnTermination: true
+      IamInstanceProfile: !Ref ChefInstanceProfile
+      ImageId: !FindInMap
+        - AutomateAWSRegion2AMI
+        - !Ref 'AWS::Region'
+        - AMI
+      InstanceType: !Ref AutomateInstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref AutomateSecurityGroup
+        - !Ref InboundAdminSecurityGroupId
+      UserData: !Base64
+        'Fn::Sub': |
+            #!/bin/bash -x
+
+            yum upgrade -y
+            curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
+            python get-pip.py
+            rm -f get-pip.py
+            pip install awscli
+            /usr/bin/easy_install --script-dir /opt/aws/bin https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+            curl -o jq -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
+            chmod +x jq
+            mv jq /usr/bin
+
+            echo "`hostname -i` ${AutomateFQDN}" >> /etc/hosts
+
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource AutomateServerLaunchConfig --region ${AWS::Region}
+
+            # All is well so signal success and let CF know wait function is complete
+
+            /opt/aws/bin/cfn-signal -e 0 -r "Server setup complete" '${AutomateWaitHandle}'
+    Metadata:
+      'AWS::CloudFormation::Init':
+        configSets:
+          default:
+            - config
+            - filebeat
+        config:
+          commands:
+            01_install_automate:
+              command: !Sub
+                - |
+                  cat >> /etc/sysctl.conf << EOF
+                  vm.max_map_count=262144
+                  vm.dirty_expire_centisecs=20000
+                  EOF
+
+                  sysctl -w vm.max_map_count=262144
+                  sysctl -w vm.dirty_expire_centisecs=20000
+
+                  mkdir /etc/chef-automate
+                  cd /etc/chef-automate
+                  curl ${ChefAutomatePackage} | gunzip - > chef-automate && chmod +x chef-automate
+
+                  aws s3 ls s3://${S3BUCKET}/${AWS::StackName}/automate_backup/|grep -P "\s\d+/"
+                  rt_backup=$?
+                  if [ "$rt_backup" == "0" ]; then
+                      aws s3 sync s3://${S3BUCKET}/${AWS::StackName}/automate_backup /var/opt/chef-automate/backups
+                      latest_backup=$(ls -t /var/opt/chef-automate/backups|grep -P "^\d+$"|head -1)
+                      cat /var/opt/chef-automate/backups/empty_directories.txt|xargs mkdir -p &>/dev/null
+                      ./chef-automate backup restore $latest_backup
+                  else
+                      echo y|./chef-automate deploy
+
+                      cat > config.toml << EOF
+                  [global.v1]
+                    fqdn = "${AutomateFQDN}"
+                  [deployment.v1.svc]
+                    upgrade_strategy = "none"
+                  EOF
+
+                      aws s3 cp s3://${ChefInternalBucket}/${ChefAutomateCustomConfig} config-custom.toml
+                      cat config-custom.toml >> config.toml
+                      ./chef-automate config patch config.toml
+                      rm -f config-custom.toml
+
+                      PASSWORD=$(cat automate-credentials.toml|grep password|cut -d = -f 2|grep -oP "[^\"\s]*")
+                      aws ssm put-parameter --region ${AWS::Region} --name /Chef/AutomatePassword --type 'SecureString' --value $PASSWORD --overwrite --key-id ${ChefKMSKey}
+                      rm automate-credentials.toml
+
+                      ./chef-automate license apply ${AutomateLicenseKey}
+
+                      ADMIN_TOKEN=`./chef-automate admin-token`
+                      aws ssm put-parameter --region ${AWS::Region} --name /Chef/AutomateAdminToken --type 'SecureString' --value $ADMIN_TOKEN --overwrite --key-id ${ChefKMSKey}
+
+                      STD_TOKEN=$(curl -s -H "api-token: $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"description":"Token for Chef server","active":true}' https://localhost/api/v0/auth/tokens -k|jq -r '.value')
+                      aws ssm put-parameter --region ${AWS::Region} --name /Chef/AutomateStandardToken --type 'SecureString' --value $STD_TOKEN --overwrite --key-id ${ChefKMSKey}
+
+                      rm -f config.toml
+                  fi
+                  mv chef-automate /usr/bin
+
+                  cat > backup.sh << EOF
+                  chef-automate backup create
+                  latest_backup=\$(ls -t /var/opt/chef-automate/backups|grep -P "^\d+$"|head -1)
+                  other_dirs=\$(ls -t /var/opt/chef-automate/backups|grep -P "^\d+$"|grep -v \$latest_backup)
+                  find /var/opt/chef-automate/backups/\$latest_backup -type d -empty > /var/opt/chef-automate/backups/empty_directories.txt
+                  counter=5
+                  while true; do
+                      echo "\$(date) Trying backup" >> /var/log/backup.log
+                      aws s3 sync --delete /var/opt/chef-automate/backups s3://${S3BUCKET}/${AWS::StackName}/automate_backup
+                      rt_sync=\$?
+                      aws s3 ls s3://${S3BUCKET}/${AWS::StackName}/automate_backup/\$latest_backup
+                      rt_automate=\$?
+                      aws s3 ls s3://${S3BUCKET}/${AWS::StackName}/automate_backup/automate-elasticsearch-data
+                      rt_elastic=\$?
+                      if [ "\$rt_sync" == "0" ] && [ "\$rt_automate" == "0" ] && [ "\$rt_elastic" == "0" ]; then
+                          break
+                      fi
+                      sleep \$counter
+                      counter=\$((counter*2))
+                      if [[ "\$counter" -ge 10240 ]]; then
+                          echo "Backup failed" >> /var/log/backup.log
+                          exit 1
+                      fi
+                  done
+                  echo "Backup complete" >> /var/log/backup.log
+                  for other_dir in \$other_dirs
+                  do
+                      rm -rf /var/opt/chef-automate/backups/\$other_dir
+                  done
+                  aws s3 sync --delete /var/opt/chef-automate/backups s3://${S3BUCKET}/${AWS::StackName}/automate_backup
+                  echo "Clean up complete" >> /var/log/backup.log
+                  EOF
+                  chmod +x backup.sh
+
+                  crontab -l > automate-cron
+                  echo "0 */4 * * * /etc/chef-automate/backup.sh >/dev/null 2>&1" >> automate-cron
+                  crontab automate-cron
+                  rm automate-cron
+                - S3BUCKET: !If
+                  - CreateChefSecretsBucket
+                  - !Ref ChefBucket
+                  - !Ref ChefSecretsBucket
+        filebeat:
+          packages:
+            rpm:
+              filebeat: >-
+                https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-5.6.6-x86_64.rpm
+          commands:
+            01_write_filebeat_yml:
+              command: !Sub |
+                if [ -n '${AutomateFilebeatConfig}' ]; then
+                  aws s3 cp s3://${ChefInternalBucket}/${AutomateFilebeatConfig} /etc/filebeat/filebeat.yml
+                fi
+                if [ -n '${FilebeatCert}' ]; then
+                  aws s3 cp s3://${ChefInternalBucket}/${FilebeatCert} /etc/filebeat/ca.crt
+                fi
+          services:
+            sysvinit:
+              filebeat:
+                enabled: true
+                ensureRunning: true
+                packages:
+                  rpm:
+                    - filebeat
+                files:
+                  - /etc/filebeat/filebeat.yml
+  SupermarketLaunchConfig:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      AssociatePublicIpAddress: false
+      EbsOptimized: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp2
+            DeleteOnTermination: true
+      IamInstanceProfile: !Ref ChefInstanceProfile
+      ImageId: !FindInMap
+        - AWSRegion2AMI
+        - !Ref 'AWS::Region'
+        - AMI
+      InstanceType: !Ref SupermarketInstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref SupermarketSecurityGroup
+        - !Ref InboundAdminSecurityGroupId
+      UserData: !Base64
+        'Fn::Sub': |
+          #!/bin/bash -x
+
+          # Execute AWS::CloudFormation::Init
+
+          echo "`hostname -i` ${SupermarketFQDN}" >> /etc/hosts
+
+          curl -o jq -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
+          chmod +x jq
+          mv jq /usr/bin
+
+          /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource SupermarketLaunchConfig --region ${AWS::Region}
+    Metadata:
+      'AWS::CloudFormation::Init':
+        configSets:
+          default:
+            - config
+            - filebeat
+        config:
+          packages:
+            rpm:
+              supermarket: !Sub '${ChefSupermarketPackage}'
+          commands:
+            01_initial_install:
+              command: supermarket-ctl reconfigure
+            02_config_files:
+              command: !Sub
+                - |
+                  SUPERMARKET_UID=$(aws ssm get-parameter --region ${AWS::Region} --name '/Chef/SupermarketUID' --with-decrypt|jq -r '.Parameter["Value"]')
+                  SUPERMARKET_SECRET=$(aws ssm get-parameter --region ${AWS::Region} --name '/Chef/SupermarketSecret' --with-decrypt|jq -r '.Parameter["Value"]')
+                  cat > /etc/supermarket/supermarket.json << EOF
+                  {
+                    "chef_server_url": "https://${ChefServerFQDN}",
+                    "chef_oauth2_app_id": "$SUPERMARKET_UID",
+                    "chef_oauth2_secret": "$SUPERMARKET_SECRET",
+                    "fqdn": "${SupermarketFQDN}",
+                    "chef_oauth2_verify_ssl": false
+                  }
+                  EOF
+
+                  cat >> /etc/supermarket/supermarket.rb << EOF
+                  default['supermarket']['postgresql']['enable'] = false
+                  default['supermarket']['database']['user'] = 'supermarket'
+                  default['supermarket']['database']['host'] = '${SupermarketPostgres.Endpoint.Address}'
+                  default['supermarket']['database']['port'] = '5432'
+                  default['supermarket']['database']['password'] = '${SupermarketDBPassword}'
+                  default['supermarket']['s3_access_key_id'] = '${SupermarketS3UserAccessKey}'
+                  default['supermarket']['s3_bucket'] = '${S3BUCKET}'
+                  default['supermarket']['s3_region'] = '${AWS::Region}'
+                  default['supermarket']['s3_secret_access_key'] = '${SECRETKEY}'
+                  EOF
+
+                  supermarket-ctl reconfigure
+                - S3BUCKET: !If
+                  - CreateSupermarketBucket
+                  - !Ref SupermarketBucket
+                  - !Ref SupermarketDataBucket
+                  SECRETKEY: !GetAtt SupermarketS3UserAccessKey.SecretAccessKey
+        filebeat:
+          packages:
+            rpm:
+              filebeat: >-
+                https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-5.6.6-x86_64.rpm
+          commands:
+            01_write_filebeat_yml:
+              command: !Sub |
+                if [ -n '${SupermarketFilebeatConfig}' ]; then
+                  aws s3 cp s3://${ChefInternalBucket}/${SupermarketFilebeatConfig} /etc/filebeat/filebeat.yml
+                fi
+                if [ -n '${FilebeatCert}' ]; then
+                  aws s3 cp s3://${ChefInternalBucket}/${FilebeatCert} /etc/filebeat/ca.crt
+                fi
+          services:
+            sysvinit:
+              filebeat:
+                enabled: true
+                ensureRunning: true
+                packages:
+                  rpm:
+                    - filebeat
+                files:
+                  - /etc/filebeat/filebeat.yml
+  JenkinsLaunchConfig:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      AssociatePublicIpAddress: false
+      EbsOptimized: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp2
+            DeleteOnTermination: true
+      IamInstanceProfile: !Ref ChefInstanceProfile
+      ImageId: !FindInMap
+        - AWSRegion2AMI
+        - !Ref 'AWS::Region'
+        - AMI
+      InstanceType: !Ref JenkinsInstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref JenkinsSecurityGroup
+        - !Ref InboundAdminSecurityGroupId
+      UserData: 
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -x
+
+            # The Jenkins setup makes use of wget, so let's make sure it is installed:
+            yum install -y wget
+            yum install -y epel-release
+            # Let's make sure that yum-presto is installed:
+            yum install -y yum-presto
+            yum remove -y java
+            yum install -y java-1.8.0-openjdk.x86_64
+            java -version
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource JenkinsLaunchConfig --region ${AWS::Region}
+    Metadata:
+      'AWS::CloudFormation::Init':
+        configSets:
+          default:
+            - config
+        config:
+          commands:
+            01_install_jenkins:
+              command: !Sub |
+                  # Let's now install Jenkins:
+                  wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo
+                  rpm --import http://pkg.jenkins-ci.org/redhat/jenkins-ci.org.key 
+                  yum install -y jenkins
+
+                  # Let's start Jenkins
+                  service jenkins start
+                  while [ ! -f /var/lib/jenkins/secrets/initialAdminPassword ]
+                  do
+                    sleep 5
+                  done
+
+                  jenkinsPass=$(cat /var/lib/jenkins/secrets/initialAdminPassword)
+                  echo $jenkinsPass jps
+                  sleep 50
+                  wget http://localhost:8080/jnlpJars/jenkins-cli.jar
+                  java -jar jenkins-cli.jar -s http://localhost:8080 -auth admin:$jenkinsPass install-plugin postbuild-task -deploy
+                  java -jar jenkins-cli.jar -s http://localhost:8080 -auth admin:$jenkinsPass install-plugin active-directory -deploy
+                  java -jar jenkins-cli.jar -s http://localhost:8080 -auth admin:$jenkinsPass install-plugin pipeline-stage-view -deploy
+                  java -jar jenkins-cli.jar -s http://localhost:8080 -auth admin:$jenkinsPass install-plugin chef-cookbook-pipeline -deploy -restart
+                  
+                  # Install Docker
+                  sleep 10
+                  yum install -y docker-io
+                  service docker start
+                  DOCKER_SOCKET=/var/run/docker.sock
+                  DOCKER_GROUP=docker
+                  JENKINS_USER=jenkins
+                  if [ -S $DOCKER_SOCKET ]; then
+                    DOCKER_GID=$(stat -c '%g' $DOCKER_SOCKET)
+                    groupadd -for -g $DOCKER_GID $DOCKER_GROUP
+                    usermod -aG $DOCKER_GROUP $JENKINS_USER
+                  fi
+                  sudo -u jenkins chef exec gem install kitchen-docker
+                  sudo -u root chef exec gem install kitchen-docker
+                  
+                  #Install chefDk
+                  wget https://packages.chef.io/files/stable/chefdk/3.1.0/el/6/chefdk-3.1.0-1.el6.x86_64.rpm
+                  rpm -Uvh chefdk-3.1.0-1.el6.x86_64.rpm
+
+                  #Install git
+                  yum -y install git
+                  
+                  # Restart Jenkins service
+                  service jenkins restart
+  BastionLaunchConfig:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      AssociatePublicIpAddress: false
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp2
+            DeleteOnTermination: true
+      IamInstanceProfile: !Ref BastionInstanceProfile
+      ImageId: !FindInMap
+        - AWSRegion2AMI
+        - !Ref 'AWS::Region'
+        - AMI
+      InstanceType: !Ref BastionInstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref BastionSecurityGroup
+        - !Ref InboundAdminSecurityGroupId
+  WaitCondition:
+    Type: 'AWS::CloudFormation::WaitCondition'
+    DependsOn: ServerLaunchConfig
+    Properties:
+      Handle: !Ref WaitHandle
+      Timeout: '1500'
+  WaitHandle:
+    Type: 'AWS::CloudFormation::WaitConditionHandle'
+  AutomateWaitCondition:
+    Type: 'AWS::CloudFormation::WaitCondition'
+    DependsOn: AutomateServerLaunchConfig
+    Properties:
+      Handle: !Ref AutomateWaitHandle
+      Timeout: '1500'
+  AutomateWaitHandle:
+    Type: 'AWS::CloudFormation::WaitConditionHandle'
+  DBSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: RDS Frontend Access
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref FrontendSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref SupermarketSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-DB-SG'
+  DBSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: RDS DB subnet group
+      SubnetIds: !Ref ChefServerSubnets
+  DBPostgres:
+    Type: 'AWS::RDS::DBInstance'
+    DeletionPolicy: Snapshot
+    Properties:
+      DBName: chef
+      AllocatedStorage: 100
+      Iops: 1000
+      MasterUsername: chefadmin
+      MasterUserPassword: !Ref DBPassword
+      DBInstanceClass: !Ref DBInstanceClass
+      StorageType: io1
+      MultiAZ: true
+      Engine: postgres
+      EngineVersion: 9.6.8
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+      BackupRetentionPeriod: 35
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      PubliclyAccessible: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-pgdb'
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  SupermarketPostgres:
+    Type: 'AWS::RDS::DBInstance'
+    DeletionPolicy: Snapshot
+    Properties:
+      DBName: supermarket
+      AllocatedStorage: 100
+      Iops: 1000
+      MasterUsername: supermarket
+      MasterUserPassword: !Ref SupermarketDBPassword
+      DBInstanceClass: !Ref DBInstanceClass
+      StorageType: io1
+      MultiAZ: true
+      Engine: postgres
+      EngineVersion: 9.5.12
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+      BackupRetentionPeriod: 35
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      PubliclyAccessible: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-supermarket-pgdb'
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  RdsEventSubscription:
+    Type: 'AWS::RDS::EventSubscription'
+    Properties:
+      EventCategories:
+        - availability
+        - configuration change
+        - creation
+        - deletion
+        - failover
+        - failure
+        - low storage
+        - maintenance
+        - notification
+        - recovery
+        - restoration
+      SnsTopicArn: !Ref AlertNotificationTopic
+      SourceIds:
+        - !Ref DBPostgres
+        - !Ref SupermarketPostgres
+      SourceType: db-instance
+  ESSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Elasticsearch Frontend Access
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref FrontendSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-ES-SG'
+  ElasticsearchDomain:
+    Type: 'AWS::Elasticsearch::Domain'
+    Properties:
+      ElasticsearchVersion: '5.5'
+      ElasticsearchClusterConfig:
+        InstanceCount: 3
+        ZoneAwarenessEnabled: false
+        InstanceType: !Ref ElasticSearchInstanceType
+        DedicatedMasterEnabled: false
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: '0'
+      AccessPolicies:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !GetAtt
+                  - ChefRole
+                  - Arn
+            Action: 'es:*'
+      VPCOptions:
+        SubnetIds:
+          - !Select
+            - 0
+            - !Ref ChefServerSubnets
+        SecurityGroupIds:
+          - !Ref ESSecurityGroup
+      AdvancedOptions:
+        rest.action.multi.allow_explicit_index: 'true'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-ES'
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  ChefDNS:
+    Type: "AWS::Route53::HostedZone"
+    Condition: CreateRoute53HostedZone
+    DeletionPolicy: Retain
+    Properties:
+      Name: !Ref Route53HostedZone
+      HostedZoneTags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-ES'
+        - Key: X-Dept
+          Value: !Ref ContactDept
+        - Key: X-Contact
+          Value: !Ref ContactEmail
+  ChefLBDNSRecord:
+    Type: 'AWS::Route53::RecordSet'
+    Condition: CreateRoute53HostedZone
+    Properties:
+      HostedZoneId: !Ref ChefDNS
+      Comment: !Sub 'Created by Cloudformation ${AWS::StackName}'
+      Name: !Sub '${Route53RecordName}.${Route53HostedZone}.'
+      Type: CNAME
+      TTL: 900
+      ResourceRecords:
+        - !GetAtt
+          - ChefALB
+          - DNSName
+  AutomateLBDNSRecord:
+    Type: 'AWS::Route53::RecordSet'
+    Condition: CreateRoute53HostedZone
+    Properties:
+      HostedZoneId: !Ref ChefDNS
+      Comment: !Sub 'Created by Cloudformation ${AWS::StackName}'
+      Name: !Sub '${AutomateRecordName}.${Route53HostedZone}.'
+      Type: CNAME
+      TTL: 900
+      ResourceRecords:
+        - !GetAtt
+          - AutomateALB
+          - DNSName
+  JenkinsRecord:
+    Type: 'AWS::Route53::RecordSet'
+    Condition: CreateRoute53HostedZone
+    Properties:
+      HostedZoneId: !Ref ChefDNS
+      Comment: !Sub 'Created by Cloudformation ${AWS::StackName}'
+      Name: !Sub 'jenkins.${Route53HostedZone}.'
+      Type: CNAME
+      TTL: 900
+      ResourceRecords:
+        - !GetAtt
+          - JenkinsALB
+          - DNSName
+  SupermarketLBDNSRecord:
+    Type: 'AWS::Route53::RecordSet'
+    Condition: CreateRoute53HostedZone
+    Properties:
+      HostedZoneId: !Ref ChefDNS
+      Comment: !Sub 'Created by Cloudformation ${AWS::StackName}'
+      Name: !Sub '${SupermarketRecordName}.${Route53HostedZone}.'
+      Type: CNAME
+      TTL: 900
+      ResourceRecords:
+        - !GetAtt
+          - SupermarketALB
+          - DNSName
+  ChefLBDNSRecordStandalone:
+    Type: 'AWS::Route53::RecordSet'
+    Condition: NotCreateRoute53HostedZone
+    Properties:
+      HostedZoneName: !Sub '${Route53HostedZone}.'
+      Comment: !Sub 'Created by Cloudformation ${AWS::StackName}'
+      Name: !Sub '${Route53RecordName}.${Route53HostedZone}.'
+      Type: CNAME
+      TTL: 900
+      ResourceRecords:
+        - !GetAtt
+          - ChefALB
+          - DNSName
+  AutomateLBDNSRecordStandalone:
+    Type: 'AWS::Route53::RecordSet'
+    Condition: NotCreateRoute53HostedZone
+    Properties:
+      HostedZoneName: !Sub '${Route53HostedZone}.'
+      Comment: !Sub 'Created by Cloudformation ${AWS::StackName}'
+      Name: !Sub '${AutomateRecordName}.${Route53HostedZone}.'
+      Type: CNAME
+      TTL: 900
+      ResourceRecords:
+        - !GetAtt
+          - AutomateALB
+          - DNSName
+  SupermarketLBDNSRecordStandalone:
+    Type: 'AWS::Route53::RecordSet'
+    Condition: NotCreateRoute53HostedZone
+    Properties:
+      HostedZoneName: !Sub '${Route53HostedZone}.'
+      Comment: !Sub 'Created by Cloudformation ${AWS::StackName}'
+      Name: !Sub '${SupermarketRecordName}.${Route53HostedZone}.'
+      Type: CNAME
+      TTL: 900
+      ResourceRecords:
+        - !GetAtt
+          - SupermarketALB
+          - DNSName
+  VarLogMessages:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogSecure:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogCron:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogCloudInitLog:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogCloudInitOutputLog:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogCfnInitLog:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogCfnInitCmdLog:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogDmesg:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogAwsSigningProxyLog:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogOpscodeBookshelfCurrent:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogOpscodeOcBifrostCurrent:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogOpscodeOpscodeErchefCurrent:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogOpscodeOpscodeErchefRequestsLog:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogOpscodeOpscodePushyServerCurrent:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogOpscodeRedisLbCurrent:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogOpscodeOcIdCurrent:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogOpscodeNginxAccessLog:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogOpscodeNginxErrorLog:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogChefManageRedisCurrent:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogChefManageWebCurrent:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  VarLogChefManageWorkerCurrent:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  AlertNotificationTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      Subscription:
+        - Endpoint: !Ref ContactEmail
+          Protocol: email
+  DiskSpaceUtilization:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'DiskSpaceUtilization-${AWS::StackName}'
+      AlarmDescription: Alarms when an disk utilization reaches a specified threshold.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: DiskSpaceUtilization
+      Namespace: System/Linux
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 2
+      Period: 300
+      Statistic: Average
+      Threshold: 80
+      Unit: Percent
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref FrontendAutoScaleGroup
+        - Name: MountPath
+          Value: /
+        - Name: Filesystem
+          Value: /dev/xvda1
+  BootstrapDiskSpaceUtilization:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'DiskSpaceUtilization-bootstrap-${AWS::StackName}'
+      AlarmDescription: Alarms when an disk utilization reaches a specified threshold.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: DiskSpaceUtilization
+      Namespace: System/Linux
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 2
+      Period: 300
+      Statistic: Average
+      Threshold: 80
+      Unit: Percent
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref BootstrapAutoScaleGroup
+        - Name: MountPath
+          Value: /
+        - Name: Filesystem
+          Value: /dev/xvda1
+  DiskSpaceUtilizationNvme:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'DiskSpaceUtilizationNvme-${AWS::StackName}'
+      AlarmDescription: Alarms when an disk utilization reaches a specified threshold.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: DiskSpaceUtilization
+      Namespace: System/Linux
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 2
+      Period: 300
+      Statistic: Average
+      Threshold: 80
+      Unit: Percent
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref FrontendAutoScaleGroup
+        - Name: MountPath
+          Value: /
+        - Name: Filesystem
+          Value: /dev/nvme0n1p1
+  BootstrapDiskSpaceUtilizationNvme:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'DiskSpaceUtilizationNvme-bootstrap-${AWS::StackName}'
+      AlarmDescription: Alarms when an disk utilization reaches a specified threshold.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: DiskSpaceUtilization
+      Namespace: System/Linux
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 2
+      Period: 300
+      Statistic: Average
+      Threshold: 80
+      Unit: Percent
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref BootstrapAutoScaleGroup
+        - Name: MountPath
+          Value: /
+        - Name: Filesystem
+          Value: /dev/nvme0n1p1
+  MemoryUtilization:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'MemoryUtilization-${AWS::StackName}'
+      AlarmDescription: Alarms when an memory utilization reaches a specified threshold.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: MemoryUtilization
+      Namespace: System/Linux
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 2
+      Period: 300
+      Statistic: Average
+      Threshold: 80
+      Unit: Percent
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref FrontendAutoScaleGroup
+  ELB5XXExceeded:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'AppELB_5XX_Exceeded-${AWS::StackName}'
+      AlarmDescription: Alarms when an 5xx requests exceed a specified threshold.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: HTTPCode_ELB_5XX_Count
+      Namespace: AWS/ApplicationELB
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 5
+      Period: 60
+      Statistic: Sum
+      Threshold: 10
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt
+            - ChefALB
+            - LoadBalancerFullName
+  CPUAlarmHigh:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'CPUAlarmHigh-${AWS::StackName}'
+      AlarmDescription: Scale up when CPU > 60% for 5 minutes
+      AlarmActions:
+        - !Ref FrontendAutoScaleUpPolicy
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 5
+      Period: 60
+      Statistic: Average
+      Threshold: 60
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref FrontendAutoScaleGroup
+  CPUAlarmLow:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'CPUAlarmLow-${AWS::StackName}'
+      AlarmDescription: Scale down when CPU < 40% for 10 minutes
+      AlarmActions:
+        - !Ref FrontendAutoScaleDownPolicy
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      ComparisonOperator: LessThanOrEqualToThreshold
+      EvaluationPeriods: 10
+      Period: 60
+      Statistic: Average
+      Threshold: 40
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref FrontendAutoScaleGroup
+  RDSWriteLatency:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'RDSWriteLatency-${AWS::StackName}'
+      AlarmDescription: Alarm when RDS write latency is greater than 500ms.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: WriteLatency
+      Namespace: AWS/RDS
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 5
+      Period: 60
+      Statistic: Average
+      Threshold: 500
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBPostgres
+  RDSReadLatency:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'RDSReadLatency-${AWS::StackName}'
+      AlarmDescription: Alarm when RDS write latency is greater than a 500ms.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: ReadLatency
+      Namespace: AWS/RDS
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Period: 300
+      Statistic: Average
+      Threshold: 500
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref DBPostgres
+  ESClusterRed:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'ESClusterRed-${AWS::StackName}'
+      AlarmDescription: Alarm when both primary and replica shards are down.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: ClusterStatus.red
+      Namespace: AWS/ES
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Period: 60
+      Statistic: Minimum
+      Threshold: 1
+      Dimensions:
+        - Name: DomainName
+          Value: !Ref ElasticsearchDomain
+        - Name: ClientId
+          Value: !Ref 'AWS::AccountId'
+  ESClusterYellow:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'ESClusterYellow-${AWS::StackName}'
+      AlarmDescription: Alarm when replica shards are down for 15 minutes.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: ClusterStatus.yellow
+      Namespace: AWS/ES
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      Period: 60
+      Statistic: Minimum
+      Threshold: 1
+      Dimensions:
+        - Name: DomainName
+          Value: !Ref ElasticsearchDomain
+        - Name: ClientId
+          Value: !Ref 'AWS::AccountId'
+  ESFreeStorageSpace:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'ESFreeStorageSpace-${AWS::StackName}'
+      AlarmDescription: Alarm when free storage space on any node falls below threshold.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: FreeStorageSpace
+      Namespace: AWS/ES
+      ComparisonOperator: LessThanOrEqualToThreshold
+      EvaluationPeriods: 5
+      Period: 60
+      Statistic: Minimum
+      Threshold: 5000
+      Dimensions:
+        - Name: DomainName
+          Value: !Ref ElasticsearchDomain
+        - Name: ClientId
+          Value: !Ref 'AWS::AccountId'
+  ESCPUUtilization:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'ESCPUUtilization-${AWS::StackName}'
+      AlarmDescription: Alarm when all nodes' average CPU load passes threshold.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: CPUUtilization
+      Namespace: AWS/ES
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 2
+      Period: 300
+      Statistic: Average
+      Threshold: 80
+      Unit: Percent
+      Dimensions:
+        - Name: DomainName
+          Value: !Ref ElasticsearchDomain
+        - Name: ClientId
+          Value: !Ref 'AWS::AccountId'
+  ESJVMMemoryPressure:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmName: !Sub 'ESJVMMemoryPressure-${AWS::StackName}'
+      AlarmDescription: >-
+        Alarm when maximum percentage of the Java heap used for all data nodes
+        in the cluster exceeds threshold.
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      MetricName: JVMMemoryPressure
+      Namespace: AWS/ES
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 2
+      Period: 300
+      Statistic: Maximum
+      Threshold: 90
+      Unit: Percent
+      Dimensions:
+        - Name: DomainName
+          Value: !Ref ElasticsearchDomain
+        - Name: ClientId
+          Value: !Ref 'AWS::AccountId'
+  OpsDashboard:
+    Type: 'AWS::CloudWatch::Dashboard'
+    Properties:
+      DashboardName: !Sub '${AWS::StackName}-OpsDashboard-${AWS::Region}'
+      DashboardBody: !Sub |
+        {
+            "widgets": [
+                {
+                    "type": "metric",
+                    "x": 12,
+                    "y": 6,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "System/Linux", "DiskSpaceUtilization", "MountPath", "/", "AutoScalingGroupName", "${BootstrapAutoScaleGroup}", "Filesystem", "/dev/xvda1", { "period": 60 } ],
+                            [ "...", "${FrontendAutoScaleGroup}", ".", ".", { "period": 60 } ],
+                            [ "System/Linux", "DiskSpaceUtilization", "MountPath", "/", "AutoScalingGroupName", "${BootstrapAutoScaleGroup}", "Filesystem", "/dev/nvme0n1p1", { "period": 60 } ],
+                            [ "...", "${FrontendAutoScaleGroup}", ".", ".", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "yAxis": {
+                            "left": {
+                                "min": 0,
+                                "max": 100
+                            }
+                        },
+                        "title": "Frontend disk space util %"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 6,
+                    "y": 6,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "System/Linux", "MemoryUtilization", "AutoScalingGroupName", "${BootstrapAutoScaleGroup}", { "period": 60 } ],
+                            [ "...", "${FrontendAutoScaleGroup}", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "Frontend Memory Util %",
+                        "yAxis": {
+                            "left": {
+                                "min": 0,
+                                "max": 100
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 18,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "CPUUtilization", "DomainName", "${ElasticsearchDomain}", "ClientId", "${AWS::AccountId}", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "ElasticSearch CPU Util %",
+                        "yAxis": {
+                            "left": {
+                                "min": 0,
+                                "max": 100
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 6,
+                    "y": 18,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "JVMMemoryPressure", "DomainName", "${ElasticsearchDomain}", "ClientId", "${AWS::AccountId}", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "ElasticSearch JVM Memory Pressure",
+                        "yAxis": {
+                            "left": {
+                                "min": 0,
+                                "max": 100
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 12,
+                    "y": 18,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": true,
+                        "metrics": [
+                            [ "AWS/ES", "ClusterUsedSpace", "DomainName", "${ElasticsearchDomain}", "ClientId", "${AWS::AccountId}", { "period": 60, "color": "#d62728" } ],
+                            [ ".", "FreeStorageSpace", ".", ".", ".", ".", { "period": 60, "color": "#1f77b4" } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "ElasticSearch Storage Space Used/Free"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 18,
+                    "y": 18,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ES", "ClusterStatus.yellow", "DomainName", "${ElasticsearchDomain}", "ClientId", "${AWS::AccountId}", { "color": "#bcbd22" } ],
+                            [ ".", "ClusterStatus.green", ".", ".", ".", ".", { "color": "#2ca02c" } ],
+                            [ ".", "ClusterStatus.red", ".", ".", ".", ".", { "color": "#d62728" } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "ElasticSearch Cluster Status",
+                        "period": 300
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 6,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${FrontendAutoScaleGroup}", { "period": 60 } ],
+                            [ "...", "${BootstrapAutoScaleGroup}", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "yAxis": {
+                            "left": {
+                                "min": 0,
+                                "max": 100
+                            }
+                        },
+                        "title": "Frontend CPU Util %"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 12,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "${DBPostgres}", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "RDS CPU Util %",
+                        "period": 300,
+                        "yAxis": {
+                            "left": {
+                                "min": 0,
+                                "max": 100
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 18,
+                    "y": 12,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/RDS", "ReadLatency", "DBInstanceIdentifier", "${DBPostgres}", { "period": 60 } ],
+                            [ ".", "WriteLatency", ".", ".", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "RDS read/write latency"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 6,
+                    "y": 12,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/RDS", "ReadIOPS", "DBInstanceIdentifier", "${DBPostgres}", { "period": 60 } ],
+                            [ ".", "WriteIOPS", ".", ".", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "RDS read/write IOPs"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 12,
+                    "y": 12,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/RDS", "FreeStorageSpace", "DBInstanceIdentifier", "${DBPostgres}", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "RDS free storage space"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 18,
+                    "y": 6,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": true,
+                        "metrics": [
+                            [ "AWS/ApplicationELB", "UnHealthyHostCount", "TargetGroup", "${ChefTargetGroup.TargetGroupFullName}", "LoadBalancer", "${ChefALB.LoadBalancerFullName}", { "period": 60, "color": "#d62728" } ],
+                            [ ".", "HealthyHostCount", ".", ".", ".", ".", { "period": 60, "color": "#1f77b4" } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "Frontends Health"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 0,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": true,
+                        "metrics": [
+                            [ "AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${ChefALB.LoadBalancerFullName}", { "period": 60, "stat": "Sum" } ],
+                            [ ".", "HTTPCode_ELB_4XX_Count", ".", ".", { "period": 60, "stat": "Sum" } ],
+                            [ ".", "HTTPCode_ELB_5XX_Count", ".", ".", { "period": 60, "color": "#d62728", "stat": "Sum" } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "LB HTTP Requests per Minute by Type",
+                        "period": 300
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 6,
+                    "y": 0,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ApplicationELB", "ActiveConnectionCount", "LoadBalancer", "${ChefALB.LoadBalancerFullName}", { "period": 60 } ],
+                            [ ".", "NewConnectionCount", ".", ".", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "LB Connection Counts"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 12,
+                    "y": 0,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "${ChefALB.LoadBalancerFullName}", { "period": 60, "stat": "p99" } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "Frontend Response Time (ms)"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 18,
+                    "y": 0,
+                    "width": 6,
+                    "height": 6,
+                    "properties": {
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "metrics": [
+                            [ "AWS/ApplicationELB", "ConsumedLCUs", "LoadBalancer", "${ChefALB.LoadBalancerFullName}", { "period": 60 } ]
+                        ],
+                        "region": "${AWS::Region}",
+                        "title": "ALB Consumed LCUs"
+                    }
+                }
+            ]
+          }
+Outputs: {}
+
