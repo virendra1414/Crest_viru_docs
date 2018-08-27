@@ -15,12 +15,6 @@ pipeline {
         sh "cd cookbook"
       }
     }
-    stage('Check current dir') {
-      steps {
-         sh "echo $pwd"
-         sh "ls -la"
-      }
-    }
 
     stage('chef test') {
 
@@ -37,20 +31,27 @@ pipeline {
 
       }
     }
-    stage('functional test and upload to server') {
+    stage('functional test') {
       steps {
         dir('cookbook') {
-            sh "chown -R jenkins:jenkins ."
+        script {
+        sh "chown -R jenkins:jenkins ."
         chef_cookbook_functional()
-        
+        }
+      }
+    }
+    }
+    stage('Upload to server') {
+      steps {
+        dir('cookbook') {
         script {
             if (fileExists('Berksfile.lock')  ) {
-                sh "berks update"
+               sh "berks update"
             }
             else {
-                sh "berks install" 
+               sh "berks install" 
             }
-            sh "berks upload | grep frozen >> berks_output "
+            sh "berks upload  >> berks_output "
             if (readFile('berks_output').contains('frozen')) {
                input('cookbook is frozen. Do you want to proceed with --force option ?')
                sh "berks upload --force"
