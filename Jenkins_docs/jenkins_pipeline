@@ -1,19 +1,29 @@
 pipeline {
   agent any
   stages {
-    
+
     stage('Checkout: Code') {
       steps {
-        
-        checkout([$class: 'GitSCM', 
-          branches: [[name: '*/master']], 
-          doGenerateSubmoduleConfigurations: false, 
-          submoduleCfg: [], 
-          userRemoteConfigs: [[credentialsId: '3f4a0e6c-4b22-400d-8fa8-bee87f0c3915', url: 'https://git.autodesk.com/dpe/chef-cookbook-test.git']]
+        checkout([$class: 'GitSCM',
+        branches: [[name: '*/master']],
+        doGenerateSubmoduleConfigurations: false,
+        extensions: [[$class: 'RelativeTargetDirectory',
+            relativeTargetDir: 'cookbook']],
+        submoduleCfg: [],
+        userRemoteConfigs: [[credentialsId: 'b6dd6bd7-e556-44af-9763-375190d4afb6', url: 'https://git.autodesk.com/dpe/chef-cookbook-test.git']]
         ])
+        sh "cd cookbook"
       }
     }
-    stage('Chef test') {
+    stage('Check current dir') {
+      steps {
+         sh "echo $pwd"
+         sh "ls -la"
+      }
+    }
+
+    stage('chef test') {
+
       steps {
           parallel(
           "Chef Cookbook Unit": {
@@ -22,23 +32,39 @@ pipeline {
           "Chef Cookbook Lint": {
             chef_cookbook_foodcritic()
             chef_cookbook_cookstyle()
-          },
-          "Chef Cookbook Functional": {
-              chef_cookbook_functional()
           }
         )
-      }
-    
-    }       
-    stage('Post to chef sserver') {
-      
-      steps {
-        
-            sh "echo pwd $pwd"
-            sh "ls -la"
-            sh "berks install"
-            sh "berks upload"
-         }
+
       }
     }
+    stage('functional test and upload to server') {
+      steps {
+        dir('cookbook') {
+            sh "chown -R jenkins:jenkins ."
+        chef_cookbook_functional()
+        
+        script {
+            if (fileExists('Berksfile.lock')  ) {
+                sh "berks update"
+            }
+            else {
+                sh "berks install" 
+            }
+            sh "berks upload | grep frozen >> berks_output "
+            if (readFile('berks_output').contains('frozen')) {
+               input('cookbook is frozen. Do you want to proceed with --force option ?')
+               sh "berks upload --force"
+            }
+            
+        }
+      }
+      }
+    }
+  }
+  post { 
+        always { 
+            deleteDir()
+        }
+    }
+
 }
