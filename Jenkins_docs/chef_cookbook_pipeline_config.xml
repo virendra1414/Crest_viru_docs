@@ -1,0 +1,90 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.24">
+  <actions>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@1.3.1"/>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.3.1">
+      <jobProperties/>
+      <triggers/>
+      <parameters/>
+    </org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction>
+  </actions>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.54">
+    <script>pipeline {
+  agent any
+  stages {
+
+    stage(&apos;Checkout: Code&apos;) {
+      steps {
+        checkout([$class: &apos;GitSCM&apos;,
+        branches: [[name: &apos;*/master&apos;]],
+        doGenerateSubmoduleConfigurations: false,
+        extensions: [[$class: &apos;RelativeTargetDirectory&apos;,
+            relativeTargetDir: &apos;cookbook&apos;]],
+        submoduleCfg: [],
+        userRemoteConfigs: [[credentialsId: &apos;git_pass&apos;, url: &apos;https://git.autodesk.com/dpe/chef-cookbook-test.git&apos;]]
+        ])
+
+      }
+    }
+
+    stage(&apos;chef test&apos;) {
+
+      steps {
+          parallel(
+          &quot;Chef Cookbook Unit&quot;: {
+            chef_cookbook_unit()
+          },
+          &quot;Chef Cookbook Lint&quot;: {
+            chef_cookbook_foodcritic()
+            chef_cookbook_cookstyle()
+          }
+        )
+
+      }
+    }
+    stage(&apos;functional test&apos;) {
+      steps {
+        dir(&apos;cookbook&apos;) {
+        script {
+        sh &quot;chown -R jenkins:jenkins .&quot;
+        chef_cookbook_functional()
+        }
+      }
+    }
+    }
+    stage(&apos;Upload to server&apos;) {
+      steps {
+        dir(&apos;cookbook&apos;) {
+        script {
+            if (fileExists(&apos;Berksfile.lock&apos;)  ) {
+               sh &quot;berks update&quot;
+            }
+            else {
+               sh &quot;berks install&quot;
+            }
+            sh &quot;berks upload  &gt;&gt; berks_output &quot;
+            if (readFile(&apos;berks_output&apos;).contains(&apos;frozen&apos;)) {
+               input(&apos;cookbook is frozen. Do you want to proceed with --force option ?&apos;)
+               sh &quot;berks upload --force&quot;
+            }
+
+        }
+      }
+      }
+    }
+  }
+  post {
+        always {
+            deleteDir()
+        }
+    }
+
+}</script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

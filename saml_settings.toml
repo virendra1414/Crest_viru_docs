@@ -1,0 +1,18 @@
+[dex.v1.sys.connectors.saml]
+  sso_url = "https://sso-stg.autodesk.com/saml2"
+  ###
+  # SAML Attributes to map to a user's Chef Automate session
+  ###
+  # Example: "email"
+  email_attr = "email"
+  # Example: "name"
+  username_attr = "username"
+  # Example: "groups"
+  groups_attr = "memberOf"
+  
+  # Optional: Manually specify Chef Automate's Issuer value.
+  #
+  # When provided dex will include this as the Issuer value during AuthnRequest.
+  # It will also override the redirectURI as the required audience when evaluating
+  # AudienceRestriction elements in the response.
+  entity_issuer = "https://sso-stg.autodesk.com/saml2"

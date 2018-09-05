@@ -1,0 +1,9 @@
+ 
+ //get ssm parameter
+ aws ssm get-parameter --region us-east-1 --name /Chef/JenkinsAdminToken --with-decrypt
+ //view parameter 
+ systems-manager/parameters/%252FChef%252FAdminPassword/description?region=us-east-1
+ 
+ 
+ //put parameter 
+  aws ssm put-parameter --region us-east-1 --name /Chef/JenkinsAdminToken --type 'SecureString' --value 42a8947a6aaf4d95a19223734ec6ff15 --overwrite --key-id 5138437a-680f-4417-bfec-34b5bebabaaf
